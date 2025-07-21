@@ -146,7 +146,58 @@ fn run(bg_path string, chars_path string, data_path string, dlines_path string) 
 							return error('${v} is not a `Choice`')
 						}
 						mut c := Choice{}
-
+						c_l_value := v['l'] or { von.Value('') }
+						if c_l_value is string {
+							c.l = c_l_value
+						} else {
+							return error('l ${c_l_value} is not a string (for choice ${v} of line `${name}`)')
+						}
+						c_next_value := v['next'] or { von.Value('') }
+						if c_next_value is string {
+							if c_next_value == '' {
+								return error('You need to specify next dialogue line for choice ${v}')
+							}
+							if c_next_value !in dlines_values {
+								return error('dialogue line ${c_next_value} does not exist (from choice ${v})')
+							}
+							c.next = c_next_value
+						} else {
+							return error('next ${c_next_value} is not a string (for choice ${v} of line `${name}`)')
+						}
+						c_if_value := v['if'] or {
+							von.Map
+							{}
+						}
+						if c_if_value is von.Map {
+							if c_if_value.keys().len > 0 {
+								for field in c_if_value.keys() {
+									if field !in app.data { // TODO: check type
+										return error('${field} is not in data.von (if of choice ${v} of line `${name}`)')
+									}
+								}
+								c.if = c_if_value
+								eprintln('ifs are not supported yet')
+							}
+						} else {
+							return error('if ${c_if_value} is not a Map (for choice ${v} of line `${name}`)')
+						}
+						c_csq_value := v['csq'] or {
+							von.Map
+							{}
+						}
+						if c_csq_value is von.Map {
+							if c_csq_value.keys().len > 0 {
+								for field in c_csq_value.keys() {
+									if field !in app.data { // TODO: check type
+										return error('${field} is not in data.von (csq of choice ${v} of line `${name}`)')
+									}
+								}
+								c.csq = c_csq_value
+								eprintln('csq are not supported yet')
+							}
+						} else {
+							return error('csq ${c_csq_value} is not a Map (for choice ${v} of line `${name}`)')
+						}
 						line.act << c
 					} else {
 						return error('${v} is not a Map (choice of act of line `${name}`)')
