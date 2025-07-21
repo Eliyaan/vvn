@@ -1,5 +1,7 @@
+module vvn
+
 import gg
-import emmathemartianvon
+import emmathemartian.von
 import os
 
 struct Line {
@@ -244,7 +246,6 @@ fn on_event(e &gg.Event, mut app App) { // TODO: out of module
 	}
 	match e.typ {
 		.mouse_down {
-			app.square_size += 1
 		}
 		.key_down {
 			match e.key_code {
