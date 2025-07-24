@@ -1,0 +1,9 @@
+{
+        john: Images {
+                        happy: 'john_happy.png'
+                        surprised: 'john_surp.png'
+        }
+        you: Images {
+                        happy: 'you_happy.png'
+        }
+}

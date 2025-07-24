@@ -33,18 +33,11 @@ mut:
 	lines         []string
 }
 
-pub fn run(mut app App, bg_path string, chars_path string, data_path string, dlines_path string) ! {
+pub fn init(mut app App, bg_path string, chars_path string, data_path string, dlines_path string) ! {
+	println('Parsing ${data_path}')
 	app.data = (von.parse_file(data_path)! as von.Map).values
 
-	app.ctx = gg.new_context( // TODO: out of module
-		create_window: true
-		window_title:  'Visual Novel'
-		user_data:     app
-		frame_fn:      on_frame
-		event_fn:      on_event
-		sample_count:  2
-	)
-
+	println('Parsing ${data_path}')
 	bg_values := (von.parse_file(bg_path)! as von.Map).values
 	for name, path in bg_values {
 		if path is string {
@@ -58,6 +51,7 @@ pub fn run(mut app App, bg_path string, chars_path string, data_path string, dli
 		}
 	}
 
+	println('Parsing ${chars_path}')
 	chars_values := (von.parse_file(chars_path)! as von.Map).values
 	for name, char_von in chars_values {
 		if char_von is von.Map {
@@ -74,10 +68,11 @@ pub fn run(mut app App, bg_path string, chars_path string, data_path string, dli
 				}
 			}
 		} else {
-			return error('${char_von} is not a string path (from the char name ${name})')
+			return error('${char_von} is not a Map (from the char name ${name})')
 		}
 	}
 
+	println('Parsing ${dlines_path}')
 	dlines_values := (von.parse_file(dlines_path)! as von.Map).values
 	for name, line_von_map in dlines_values {
 		if line_von_map is von.Map {
@@ -222,8 +217,6 @@ pub fn run(mut app App, bg_path string, chars_path string, data_path string, dli
 	} else {
 		return error('vvn_first_dialogue: ${first_dline_name} is not string ')
 	}
-
-	app.ctx.run()
 }
 
 pub fn draw(mut app App, char_w f32, char_h f32, text_char_max_w int, line_h int, text_cfg gx.TextCfg) {
@@ -239,12 +232,6 @@ pub fn draw(mut app App, char_w f32, char_h f32, text_char_max_w int, line_h int
 	for i, c in app.current_dline.act {
 		app.ctx.draw_text(0, s.height - line_h * (app.lines.len + i), c.l, text_cfg)
 	}
-}
-
-fn on_frame(mut app App) { // TODO: out of module
-	app.ctx.begin()
-	draw(mut app, 200, 600, 16, 40, gx.TextCfg{ color: gx.black, size: 32 })
-	app.ctx.end()
 }
 
 pub fn events(mut app App, e &gg.Event, text_char_max_w int, line_h int) {
@@ -266,19 +253,3 @@ pub fn events(mut app App, e &gg.Event, text_char_max_w int, line_h int) {
 	}
 }
 
-fn on_event(e &gg.Event, mut app App) { // TODO: out of module
-	events(mut app, e, 16, 40)
-	if e.char_code != 0 {
-		println(e.char_code)
-	}
-	match e.typ {
-		.mouse_down {}
-		.key_down {
-			match e.key_code {
-				.escape { app.ctx.quit() }
-				else {}
-			}
-		}
-		else {}
-	}
-}

@@ -1,0 +1,39 @@
+{
+        tea_john_upset: Line {
+                chars: {
+                        john: 'surprised'
+                        you: 'happy'
+                }
+                bg: 'tree'
+                l: 'HEY! Why would you put 5 sugars?'
+                audio: 'tea_john_upset.mp3'
+                act: [
+                        Choice {
+                                l: 'I said 2!'
+                                next: 'tea_john_upset'
+                        },
+                        Choice {
+                                l: 'It tastes nicer'
+                                if: {
+                                        courage: 1
+                                        sugar: '>= 5'
+                                }
+                                csq: {
+                                        sugar: '- 5'
+                                        rep: 0
+                                }
+                                next: 'tea_john_agree'
+                        }
+                ]
+        }
+        tea_john_agree: Line {
+                chars: {
+                        john: 'happy'
+                        you: 'happy'
+                }
+                bg: 'sky'
+                l: 'Oh... you're right'
+                audio: 'tea_john_agree.mp3'
+                act: 'tea_john_upset'
+        }
+}
