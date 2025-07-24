@@ -32,7 +32,7 @@
                         you: 'happy'
                 }
                 bg: 'sky'
-                l: 'Oh... you're right'
+                l: "Oh... you're right"
                 audio: 'tea_john_agree.mp3'
                 act: 'tea_john_upset'
         }

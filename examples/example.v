@@ -5,17 +5,21 @@ import gg
 
 struct App {
 mut:
-	ctx           &gg.Context = unsafe { nil }
-	bgs           map[string]gg.Image
-	chars         map[string]map[string]gg.Image
-	data          map[string]von.Value
-	dlines        map[string]vvn.Line
-	current_dline vvn.Line
-	lines         []string
+	ctx             &gg.Context = unsafe { nil }
+	bgs             map[string]gg.Image
+	chars           map[string]map[string]gg.Image
+	data            map[string]von.Value
+	dlines          map[string]vvn.Line
+	current_dline   vvn.Line
+	lines           []string
+	old_size        gg.Size
+	text_char_max_w int
 }
 
 fn main() {
-	mut app := &App{}
+	mut app := &App{
+		text_char_max_w: 16
+	}
 	app.ctx = gg.new_context( // Important to initialize the context before vvn
 		create_window: true
 		window_title:  'Visual Novel'
@@ -30,8 +34,8 @@ fn main() {
 	app.ctx.run()
 }
 
-fn on_event(e &gg.Event, mut app App) { 
-	vvn.events(mut app, e, 16, 40)
+fn on_event(e &gg.Event, mut app App) {
+	vvn.events(mut app, e, 40)
 	if e.char_code != 0 {
 		println(e.char_code)
 	}
@@ -47,8 +51,8 @@ fn on_event(e &gg.Event, mut app App) {
 	}
 }
 
-fn on_frame(mut app App) { 
+fn on_frame(mut app App) {
 	app.ctx.begin()
-	vvn.draw(mut app, 200, 600, 16, 40, gx.TextCfg{ color: gx.black, size: 32 })
+	vvn.draw(mut app, 300, 500, 40, gx.TextCfg{ color: gx.black, size: 32 })
 	app.ctx.end()
 }

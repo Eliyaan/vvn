@@ -24,13 +24,15 @@ pub mut:
 
 pub interface App {
 mut:
-	ctx           &gg.Context
-	bgs           map[string]gg.Image
-	chars         map[string]map[string]gg.Image
-	data          map[string]von.Value
-	dlines        map[string]Line
-	current_dline Line
-	lines         []string
+	ctx             &gg.Context
+	bgs             map[string]gg.Image
+	chars           map[string]map[string]gg.Image
+	data            map[string]von.Value
+	dlines          map[string]Line
+	current_dline   Line
+	lines           []string
+	old_size        gg.Size
+	text_char_max_w int
 }
 
 pub fn init(mut app App, bg_path string, chars_path string, data_path string, dlines_path string) ! {
@@ -126,7 +128,7 @@ pub fn init(mut app App, bg_path string, chars_path string, data_path string, dl
 			laudio_value := unsafe { line_map['audio'] or { von.Value('') } }
 			if laudio_value is string {
 				if laudio_value != '' {
-					line.l = laudio_value
+					line.audio = laudio_value
 					eprintln('audio is not yet supported')
 				}
 			} else {
@@ -203,7 +205,7 @@ pub fn init(mut app App, bg_path string, chars_path string, data_path string, dl
 					}
 				}
 			} else {
-				return error('${laudio_value} is not a string nor a Map (for act of line `${name}`)')
+				return error('${lact_value} is not a string nor a Map (for act of line `${name}`)')
 			}
 			app.dlines[name] = line
 		} else {
@@ -213,15 +215,19 @@ pub fn init(mut app App, bg_path string, chars_path string, data_path string, dl
 
 	first_dline_name := app.data['vvn_first_dialogue'] or { app.dlines.keys()[0] }
 	if first_dline_name is string {
-		app.current_dline = app.dlines[first_dline_name]
+		change_dline(mut app, first_dline_name)
 	} else {
 		return error('vvn_first_dialogue: ${first_dline_name} is not string ')
 	}
 }
 
-pub fn draw(mut app App, char_w f32, char_h f32, text_char_max_w int, line_h int, text_cfg gx.TextCfg) {
+pub fn draw(mut app App, char_w f32, char_h f32, line_h int, text_cfg gx.TextCfg) {
 	s := app.ctx.window_size()
 	app.ctx.draw_image(0, 0, s.width, s.height, unsafe { app.bgs[app.current_dline.bg] })
+	if s != app.old_size {
+		app.lines = app.current_dline.l.wrap(width: s.width / app.text_char_max_w).split('\n')
+		app.old_size = s
+	}
 	for i, c in app.current_dline.chars.keys() {
 		c_img := app.current_dline.chars[c]
 		app.ctx.draw_image(i * char_w, s.height - char_h, char_w, char_h, unsafe { app.chars[c][c_img] })
@@ -234,17 +240,27 @@ pub fn draw(mut app App, char_w f32, char_h f32, text_char_max_w int, line_h int
 	}
 }
 
-pub fn events(mut app App, e &gg.Event, text_char_max_w int, line_h int) {
+pub fn change_dline(mut app App, next string) {
+	s := app.ctx.window_size()
+	app.current_dline = app.dlines[next]
+	app.lines = app.current_dline.l.wrap(width: s.width / app.text_char_max_w).split('\n')
+	app.old_size = s
+}
+
+pub fn events(mut app App, e &gg.Event, line_h int) {
 	s := app.ctx.window_size()
 
 	match e.typ {
 		.mouse_down {
-			for i, c in app.current_dline.act {
-				y := s.height - line_h * (app.lines.len + i)
-				y_2 := s.height - line_h * (app.lines.len + i + 1)
-				if e.mouse_x >= 0 && e.mouse_x <= s.width && e.mouse_y >= y && e.mouse_y <= y_2 {
-					app.current_dline = app.dlines[c.next]
-					app.lines = app.current_dline.l.wrap(width: s.width / text_char_max_w).split('\n')
+			if app.current_dline.act.len == 1 && app.current_dline.act[0].l == '' {
+				change_dline(mut app, app.current_dline.act[0].next)
+			} else {
+				for i, c in app.current_dline.act {
+					y := s.height - line_h * (app.lines.len + i)
+					y_2 := s.height - line_h * (app.lines.len + i - 1)
+					if e.mouse_x >= 0 && e.mouse_x <= s.width && e.mouse_y >= y && e.mouse_y <= y_2 {
+						change_dline(mut app, c.next)
+					}
 				}
 			}
 		}
@@ -252,4 +268,3 @@ pub fn events(mut app App, e &gg.Event, text_char_max_w int, line_h int) {
 		else {}
 	}
 }
-
