@@ -10,7 +10,7 @@
                 act: [
                         Choice {
                                 l: 'I said 2!'
-                                next: 'tea_john_upset'
+                                next: 'tea_john_ok'
                         },
                         Choice {
                                 l: 'It tastes nicer'
@@ -34,6 +34,16 @@
                 bg: 'sky'
                 l: "Oh... you're right"
                 audio: 'tea_john_agree.mp3'
+                act: 'tea_john_upset'
+        }
+        tea_john_ok: Line {
+                chars: {
+                        john: 'happy'
+                        you: 'happy'
+                }
+                bg: 'sky'
+                l: "My bad, okay"
+                audio: 'tea_john_ok.mp3'
                 act: 'tea_john_upset'
         }
 }

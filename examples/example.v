@@ -6,6 +6,7 @@ import gg
 struct App {
 mut:
 	ctx             &gg.Context = unsafe { nil }
+	selected_dline  int
 	bgs             map[string]gg.Image
 	chars           map[string]map[string]gg.Image
 	data            map[string]von.Value

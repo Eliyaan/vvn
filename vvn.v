@@ -25,6 +25,7 @@ pub mut:
 pub interface App {
 mut:
 	ctx             &gg.Context
+	selected_dline	int
 	bgs             map[string]gg.Image
 	chars           map[string]map[string]gg.Image
 	data            map[string]von.Value
@@ -222,21 +223,37 @@ pub fn init(mut app App, bg_path string, chars_path string, data_path string, dl
 }
 
 pub fn draw(mut app App, char_w f32, char_h f32, line_h int, text_cfg gx.TextCfg) {
+	color_dline := gg.Color{255, 255, 255, 255}
+	color_choice := gg.Color{128, 128, 128, 255}
+	color_select_choice := gg.Color{200, 128, 128, 255}
+	side_margin := 10
+	char_dx := 250
 	s := app.ctx.window_size()
+
+	w_margin := s.width - 2 * side_margin
 	app.ctx.draw_image(0, 0, s.width, s.height, unsafe { app.bgs[app.current_dline.bg] })
 	if s != app.old_size {
-		app.lines = app.current_dline.l.wrap(width: s.width / app.text_char_max_w).split('\n')
+		app.lines = app.current_dline.l.wrap(width: w_margin / app.text_char_max_w).split('\n')
 		app.old_size = s
 	}
 	for i, c in app.current_dline.chars.keys() {
 		c_img := app.current_dline.chars[c]
-		app.ctx.draw_image(i * char_w, s.height - char_h, char_w, char_h, unsafe { app.chars[c][c_img] })
+		app.ctx.draw_image(i * char_dx, s.height - char_h, char_w, char_h, unsafe { app.chars[c][c_img] })
 	}
+	app.ctx.draw_rect_filled(0, s.height - line_h * app.lines.len, s.width, line_h * app.lines.len,
+		color_dline)
+	if app.current_dline.act.len > 1 {
+		app.ctx.draw_rect_filled(0, s.height - line_h * (app.lines.len + app.current_dline.act.len),
+			s.width, line_h * app.current_dline.act.len, color_choice)
+	}
+	app.ctx.draw_rect_filled(0, s.height - line_h * (app.lines.len + app.selected_dline + 1), s.width, line_h, color_select_choice)
+	
+	off_y := (line_h - text_cfg.size) / 2
 	for i, l in app.lines {
-		app.ctx.draw_text(0, s.height - line_h * (app.lines.len - i), l, text_cfg)
+		app.ctx.draw_text(side_margin, s.height - line_h * (app.lines.len - i) + off_y, l, text_cfg)
 	}
 	for i, c in app.current_dline.act {
-		app.ctx.draw_text(0, s.height - line_h * (app.lines.len + i), c.l, text_cfg)
+		app.ctx.draw_text(side_margin, s.height - line_h * (app.lines.len + i + 1) + off_y, c.l, text_cfg)
 	}
 }
 
@@ -245,6 +262,7 @@ pub fn change_dline(mut app App, next string) {
 	app.current_dline = app.dlines[next]
 	app.lines = app.current_dline.l.wrap(width: s.width / app.text_char_max_w).split('\n')
 	app.old_size = s
+	app.selected_dline = 0 
 }
 
 pub fn events(mut app App, e &gg.Event, line_h int) {
@@ -256,11 +274,20 @@ pub fn events(mut app App, e &gg.Event, line_h int) {
 				change_dline(mut app, app.current_dline.act[0].next)
 			} else {
 				for i, c in app.current_dline.act {
-					y := s.height - line_h * (app.lines.len + i)
-					y_2 := s.height - line_h * (app.lines.len + i - 1)
+					y := s.height - line_h * (app.lines.len + i + 1)
+					y_2 := s.height - line_h * (app.lines.len + i)
 					if e.mouse_x >= 0 && e.mouse_x <= s.width && e.mouse_y >= y && e.mouse_y <= y_2 {
 						change_dline(mut app, c.next)
 					}
+				}
+			}
+		}
+		.mouse_move {
+			for i, _ in app.current_dline.act {
+				y := s.height - line_h * (app.lines.len + i + 1)
+				y_2 := s.height - line_h * (app.lines.len + i)
+				if e.mouse_x >= 0 && e.mouse_x <= s.width && e.mouse_y >= y && e.mouse_y <= y_2 {
+					app.selected_dline = i
 				}
 			}
 		}
