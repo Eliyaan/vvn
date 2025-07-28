@@ -45,7 +45,7 @@ pub mut:
 	color_choice        gg.Color
 	color_select_choice gg.Color
 	text_cfg            gx.TextCfg
-	text_char_max_w     int
+	text_char_max_w     int = 8
 }
 
 pub interface App {
