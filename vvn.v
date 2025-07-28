@@ -22,30 +22,49 @@ pub mut:
 	csq  map[string]von.Value
 }
 
+pub struct Data {
+pub mut:
+	bgs            map[string]gg.Image
+	chars          map[string]map[string]gg.Image
+	data           map[string]von.Value
+	dlines         map[string]Line
+	current_dline  Line
+	lines          []string
+	selected_dline int
+	old_size       gg.Size
+}
+
+pub struct Settings {
+pub mut:
+	char_w              f32
+	char_h              f32
+	char_dx             int
+	side_margin         int
+	line_h              int
+	color_dline         gg.Color
+	color_choice        gg.Color
+	color_select_choice gg.Color
+	text_cfg            gx.TextCfg
+	text_char_max_w     int
+}
+
 pub interface App {
 mut:
-	ctx             &gg.Context
-	selected_dline	int
-	bgs             map[string]gg.Image
-	chars           map[string]map[string]gg.Image
-	data            map[string]von.Value
-	dlines          map[string]Line
-	current_dline   Line
-	lines           []string
-	old_size        gg.Size
-	text_char_max_w int
+	ctx &gg.Context
+	d   Data
+	s   Settings
 }
 
 pub fn init(mut app App, bg_path string, chars_path string, data_path string, dlines_path string) ! {
 	println('Parsing ${data_path}')
-	app.data = (von.parse_file(data_path)! as von.Map).values
+	app.d.data = (von.parse_file(data_path)! as von.Map).values
 
 	println('Parsing ${data_path}')
 	bg_values := (von.parse_file(bg_path)! as von.Map).values
 	for name, path in bg_values {
 		if path is string {
 			if os.exists(path) {
-				app.bgs[name] = app.ctx.create_image(path)!
+				app.d.bgs[name] = app.ctx.create_image(path)!
 			} else {
 				return error('background image ${path} not found')
 			}
@@ -62,7 +81,7 @@ pub fn init(mut app App, bg_path string, chars_path string, data_path string, dl
 			for iname, ipath in char_map {
 				if ipath is string {
 					if os.exists(ipath) {
-						app.chars[name][iname] = app.ctx.create_image(ipath)!
+						app.d.chars[name][iname] = app.ctx.create_image(ipath)!
 					} else {
 						return error('char image ${ipath} not found')
 					}
@@ -91,8 +110,8 @@ pub fn init(mut app App, bg_path string, chars_path string, data_path string, dl
 				lchars := unsafe { &lchars_values.values }
 				for cname, char_img in lchars {
 					char_imgs := unsafe {
-						&app.chars[cname] or {
-							return error('Unknown char ${cname} in ${app.chars.keys()}')
+						&app.d.chars[cname] or {
+							return error('Unknown char ${cname} in ${app.d.chars.keys()}')
 						}
 					}
 					if char_img is string {
@@ -111,8 +130,8 @@ pub fn init(mut app App, bg_path string, chars_path string, data_path string, dl
 				line_map['bg'] or { return error('Did not find `bg` field for line ${name}') }
 			}
 			if lbg_value is string {
-				if lbg_value !in app.bgs {
-					return error('Unknown bg ${lbg_value} in ${app.bgs.keys()}')
+				if lbg_value !in app.d.bgs {
+					return error('Unknown bg ${lbg_value} in ${app.d.bgs.keys()}')
 				}
 				line.bg = lbg_value
 			} else {
@@ -175,7 +194,7 @@ pub fn init(mut app App, bg_path string, chars_path string, data_path string, dl
 							c_if := unsafe { &c_if_value.values }
 							if c_if.keys().len > 0 {
 								for field in c_if.keys() {
-									if field !in app.data { // TODO: check type
+									if field !in app.d.data { // TODO: check type
 										return error('${field} is not in data.von (if of choice ${vv} of line `${name}`)')
 									}
 								}
@@ -190,7 +209,7 @@ pub fn init(mut app App, bg_path string, chars_path string, data_path string, dl
 							c_csq := unsafe { &c_csq_value.values }
 							if c_csq.keys().len > 0 {
 								for field in c_csq.keys() {
-									if field !in app.data { // TODO: check type
+									if field !in app.d.data { // TODO: check type
 										return error('${field} is not in data.von (csq of choice ${vv} of line `${name}`)')
 									}
 								}
@@ -208,13 +227,13 @@ pub fn init(mut app App, bg_path string, chars_path string, data_path string, dl
 			} else {
 				return error('${lact_value} is not a string nor a Map (for act of line `${name}`)')
 			}
-			app.dlines[name] = line
+			app.d.dlines[name] = line
 		} else {
 			return error('${line_von_map} is not a Map (from the line `${name}`)')
 		}
 	}
 
-	first_dline_name := app.data['vvn_first_dialogue'] or { app.dlines.keys()[0] }
+	first_dline_name := app.d.data['vvn_first_dialogue'] or { app.d.dlines.keys()[0] }
 	if first_dline_name is string {
 		change_dline(mut app, first_dline_name)
 	} else {
@@ -222,60 +241,60 @@ pub fn init(mut app App, bg_path string, chars_path string, data_path string, dl
 	}
 }
 
-pub fn draw(mut app App, char_w f32, char_h f32, line_h int, text_cfg gx.TextCfg) {
-	color_dline := gg.Color{255, 255, 255, 255}
-	color_choice := gg.Color{128, 128, 128, 255}
-	color_select_choice := gg.Color{200, 128, 128, 255}
-	side_margin := 10
-	char_dx := 250
+pub fn draw(mut app App) {
 	s := app.ctx.window_size()
 
-	w_margin := s.width - 2 * side_margin
-	app.ctx.draw_image(0, 0, s.width, s.height, unsafe { app.bgs[app.current_dline.bg] })
-	if s != app.old_size {
-		app.lines = app.current_dline.l.wrap(width: w_margin / app.text_char_max_w).split('\n')
-		app.old_size = s
+	w_margin := s.width - 2 * app.s.side_margin
+	app.ctx.draw_image(0, 0, s.width, s.height, unsafe { app.d.bgs[app.d.current_dline.bg] })
+	if s != app.d.old_size {
+		app.d.lines = app.d.current_dline.l.wrap(width: w_margin / app.s.text_char_max_w).split('\n')
+		app.d.old_size = s
 	}
-	for i, c in app.current_dline.chars.keys() {
-		c_img := app.current_dline.chars[c]
-		app.ctx.draw_image(i * char_dx, s.height - char_h, char_w, char_h, unsafe { app.chars[c][c_img] })
+	for i, c in app.d.current_dline.chars.keys() {
+		c_img := app.d.current_dline.chars[c]
+		app.ctx.draw_image(i * app.s.char_dx, s.height - app.s.char_h, app.s.char_w, app.s.char_h,
+			unsafe { app.d.chars[c][c_img] })
 	}
-	app.ctx.draw_rect_filled(0, s.height - line_h * app.lines.len, s.width, line_h * app.lines.len,
-		color_dline)
-	if app.current_dline.act.len > 1 {
-		app.ctx.draw_rect_filled(0, s.height - line_h * (app.lines.len + app.current_dline.act.len),
-			s.width, line_h * app.current_dline.act.len, color_choice)
+	app.ctx.draw_rect_filled(0, s.height - app.s.line_h * app.d.lines.len, s.width, app.s.line_h * app.d.lines.len,
+		app.s.color_dline)
+	if app.d.current_dline.act.len > 1 {
+		app.ctx.draw_rect_filled(0, s.height - app.s.line_h * (app.d.lines.len +
+			app.d.current_dline.act.len), s.width, app.s.line_h * app.d.current_dline.act.len,
+			app.s.color_choice)
 	}
-	app.ctx.draw_rect_filled(0, s.height - line_h * (app.lines.len + app.selected_dline + 1), s.width, line_h, color_select_choice)
-	
-	off_y := (line_h - text_cfg.size) / 2
-	for i, l in app.lines {
-		app.ctx.draw_text(side_margin, s.height - line_h * (app.lines.len - i) + off_y, l, text_cfg)
+	app.ctx.draw_rect_filled(0, s.height - app.s.line_h * (app.d.lines.len + app.d.selected_dline +
+		1), s.width, app.s.line_h, app.s.color_select_choice)
+
+	off_y := (app.s.line_h - app.s.text_cfg.size) / 2
+	for i, l in app.d.lines {
+		app.ctx.draw_text(app.s.side_margin, s.height - app.s.line_h * (app.d.lines.len - i) + off_y,
+			l, app.s.text_cfg)
 	}
-	for i, c in app.current_dline.act {
-		app.ctx.draw_text(side_margin, s.height - line_h * (app.lines.len + i + 1) + off_y, c.l, text_cfg)
+	for i, c in app.d.current_dline.act {
+		app.ctx.draw_text(app.s.side_margin, s.height - app.s.line_h * (app.d.lines.len + i + 1) +
+			off_y, c.l, app.s.text_cfg)
 	}
 }
 
 pub fn change_dline(mut app App, next string) {
 	s := app.ctx.window_size()
-	app.current_dline = app.dlines[next]
-	app.lines = app.current_dline.l.wrap(width: s.width / app.text_char_max_w).split('\n')
-	app.old_size = s
-	app.selected_dline = 0 
+	app.d.current_dline = app.d.dlines[next]
+	app.d.lines = app.d.current_dline.l.wrap(width: s.width / app.s.text_char_max_w).split('\n')
+	app.d.old_size = s
+	app.d.selected_dline = 0
 }
 
-pub fn events(mut app App, e &gg.Event, line_h int) {
+pub fn events(mut app App, e &gg.Event) {
 	s := app.ctx.window_size()
 
 	match e.typ {
 		.mouse_down {
-			if app.current_dline.act.len == 1 && app.current_dline.act[0].l == '' {
-				change_dline(mut app, app.current_dline.act[0].next)
+			if app.d.current_dline.act.len == 1 && app.d.current_dline.act[0].l == '' {
+				change_dline(mut app, app.d.current_dline.act[0].next)
 			} else {
-				for i, c in app.current_dline.act {
-					y := s.height - line_h * (app.lines.len + i + 1)
-					y_2 := s.height - line_h * (app.lines.len + i)
+				for i, c in app.d.current_dline.act {
+					y := s.height - app.s.line_h * (app.d.lines.len + i + 1)
+					y_2 := s.height - app.s.line_h * (app.d.lines.len + i)
 					if e.mouse_x >= 0 && e.mouse_x <= s.width && e.mouse_y >= y && e.mouse_y <= y_2 {
 						change_dline(mut app, c.next)
 					}
@@ -283,11 +302,11 @@ pub fn events(mut app App, e &gg.Event, line_h int) {
 			}
 		}
 		.mouse_move {
-			for i, _ in app.current_dline.act {
-				y := s.height - line_h * (app.lines.len + i + 1)
-				y_2 := s.height - line_h * (app.lines.len + i)
+			for i, _ in app.d.current_dline.act {
+				y := s.height - app.s.line_h * (app.d.lines.len + i + 1)
+				y_2 := s.height - app.s.line_h * (app.d.lines.len + i)
 				if e.mouse_x >= 0 && e.mouse_x <= s.width && e.mouse_y >= y && e.mouse_y <= y_2 {
-					app.selected_dline = i
+					app.d.selected_dline = i
 				}
 			}
 		}
