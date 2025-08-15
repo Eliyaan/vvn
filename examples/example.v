@@ -1,5 +1,4 @@
 import vvn
-import gx
 import gg
 
 struct App {
@@ -31,8 +30,8 @@ fn main() {
 		char_w:              300
 		char_h:              500
 		text_char_max_w:     16
-		text_cfg:            gx.TextCfg{
-			color: gx.black
+		text_cfg:            gg.TextCfg{
+			color: gg.black
 			size:  32
 		}
 	}
